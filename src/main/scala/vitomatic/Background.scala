@@ -17,13 +17,16 @@ import scala.scalajs.js.{Date, JSON}
 
 object Background extends js.JSApp {
 
-  def subscribe(encodedAgentDetail: String) = {
+  def subscribe(agentDetail: AgentDetail) = {
 
     var timerId: Int = 0
 
+    val encodedAgentDetail = encodeURIComponent(write(agentDetail))
+    debug(s"Encoded agent detail: ${encodedAgentDetail}")
+
     def endpoint(path: String, protocol: String = "http"): String = {
-      //val host = "hackathon.tailrec.io"
-      val host = "localhost"
+      val host = "hackathon.tailrec.io"
+//      val host = "localhost"
       val ep = s"${protocol}://${host}:9000/${path.stripPrefix("/")}"
       ep
     }
@@ -45,6 +48,8 @@ object Background extends js.JSApp {
         val data = event.data.asInstanceOf[String]
         val config = read[LoadTestConfig](data)
 
+        dom.window.alert(s"Let's attack: ${config.targetUrl}")
+
         (0 until config.loopCount).foreach { i =>
           val startTime = Platform.currentTime
           val xhr = new XMLHttpRequest()
@@ -57,16 +62,14 @@ object Background extends js.JSApp {
             withCredentials = false,
             responseType = ""
           ).map { res =>
-            debug("Success")
-            //TODO: send result to SQS
             val rtt = Platform.currentTime - startTime
-            val result = write(SingleHitResult(config.clientId, config.targetUrl, res.status, true, rtt, res.statusText))
-            Ajax.post(endpoint("/sqs"), result)
+            val result = write(SingleHitResult(config.clientId, agentDetail.address, config.targetUrl, res.status, true, rtt, res.statusText))
+            enqueue(result)
           }.onFailure {
             case AjaxException(res) =>
               val rtt = Platform.currentTime - startTime
-              val result = write(SingleHitResult(config.clientId, config.targetUrl, res.status, false, rtt, res.statusText))
-              Ajax.post(endpoint("/sqs"), result)
+              val result = write(SingleHitResult(config.clientId, agentDetail.address, config.targetUrl, res.status, false, rtt, res.statusText))
+              enqueue(result)
           }
         }
       }
@@ -74,9 +77,15 @@ object Background extends js.JSApp {
     createSocket()
   }
 
+  def enqueue(data: String) = {
+    //API key not require for the sake of hackathon!
+    val enqueueUrl = "https://k6xiqf7156.execute-api.us-east-1.amazonaws.com/prod/EnqueueLoadHitResult"
+    Ajax.post(enqueueUrl, data)
+  }
+
   def main(): Unit = {
 
-    debug("Welcome to the club!")
+    dom.window.alert("Welcome to the army! I'll let you know when we move.")
 
     Ajax.get("http://api.ipify.org/").onSuccess { case xhr =>
       val address = xhr.responseText
@@ -85,15 +94,14 @@ object Background extends js.JSApp {
 
       val timezone = g.Intl.DateTimeFormat().resolvedOptions().timeZone.asInstanceOf[String]
       val tzOffset = new Date().getTimezoneOffset() / -60
-      val agentDetail = write(AgentDetail(address, userAgent, AgentTimeZone(timezone, tzOffset)))
-      dom.console.log(s"Agent detail: ${agentDetail}")
-      val encodedAgentDetail = encodeURIComponent(agentDetail)
-      dom.console.log(s"Encoded agent detail: ${encodedAgentDetail}")
-      subscribe(encodedAgentDetail)
+      val agentDetail = AgentDetail(address, userAgent, AgentTimeZone(timezone, tzOffset))
+      debug(s"Agent detail: ${agentDetail}")
+      subscribe(agentDetail)
     }
   }
 
-  def debug(string: String): Unit = {
-    dom.window.alert(string)
+  def debug(message: String): Unit = {
+    g.chrome.extension.getBackgroundPage().console.log(message)
   }
+
 }

@@ -1,5 +1,5 @@
 {
-  "name": "Scalable Test Client",
+  "name": "Clone Trooper (Crowdsourced Load Testing)",
   "manifest_version": 2,
   "version": "0.1.3",
   "description": "Subscribe to WebSocket and wait for commands",

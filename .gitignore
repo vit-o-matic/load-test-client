@@ -7,3 +7,5 @@ project/target/
 .settings/
 .idea/
 extension/background.js
+*.crx
+*.pem

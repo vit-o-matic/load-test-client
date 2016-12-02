@@ -1,6 +1,6 @@
-import java.io.{File, FileInputStream, FileOutputStream, FileWriter}
+import java.io.{FileInputStream, FileOutputStream, FileWriter}
 import java.nio.file.{Files, Paths}
-import sbt._
+
 // Turn this project into a Scala.js project by importing these settings
 enablePlugins(ScalaJSPlugin)
 
@@ -22,7 +22,7 @@ libraryDependencies ++= Seq(
   "com.lihaoyi" %%% "utest" % "0.3.0" % "test"
 )
 
-fastOptJS <<= (fastOptJS in Compile) map { result =>
+def postCompile(result: Attributed[File]) = {
   val src = result.data
   val dest = new File("extension/background.js")
   println("Compiled to: " + result.data)
@@ -34,3 +34,8 @@ fastOptJS <<= (fastOptJS in Compile) map { result =>
   writer.close()
   result
 }
+
+fastOptJS <<= (fastOptJS in Compile).map(postCompile(_))
+
+fullOptJS <<= (fullOptJS in Compile).map(postCompile(_))
+
